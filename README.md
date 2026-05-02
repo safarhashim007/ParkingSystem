@@ -130,4 +130,6 @@ application and can be extended later with GUI or database support.
 
 ## 👨‍💻 Author
 
+**Safar Hashim**
 Made with ☕ using Core Java
+```
