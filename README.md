@@ -131,4 +131,3 @@ application and can be extended later with GUI or database support.
 ## 👨‍💻 Author
 
 Made with ☕ using Core Java
-```
