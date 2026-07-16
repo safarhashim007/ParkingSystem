@@ -7,7 +7,7 @@ public class Main {
 
     public static void main(String[] args) {
         System.out.println("╔══════════════════════════════════════╗");
-        System.out.println("║   PARKING SLOT MANAGEMENT SYSTEM     ║");
+        System.out.println("║               EZPARK                 ║");
         System.out.println("╚══════════════════════════════════════╝");
 
         boolean running = true;

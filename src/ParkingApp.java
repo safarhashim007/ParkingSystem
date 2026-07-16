@@ -6,7 +6,7 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
-/** Desktop UI for the Parking Slot Management System. */
+/** Desktop UI for the EZPark Parking Management System. */
 public class ParkingApp extends JFrame {
     private final ParkingLot lot = new ParkingLot();
     private final JLabel twoWheelerCount = new JLabel();
@@ -26,7 +26,7 @@ public class ParkingApp extends JFrame {
     private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("dd MMM yyyy, HH:mm");
 
     public ParkingApp() {
-        setTitle("ParkWise | Parking Management");
+        setTitle("EZPark | Parking Management");
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setMinimumSize(new Dimension(900, 620));
         setLocationByPlatform(true);
@@ -44,7 +44,7 @@ public class ParkingApp extends JFrame {
     private JComponent header() {
         JPanel panel = new JPanel(new BorderLayout());
         panel.setOpaque(false);
-        JLabel title = new JLabel("ParkWise");
+        JLabel title = new JLabel("EZPark");
         title.setFont(new Font("SansSerif", Font.BOLD, 28));
         title.setForeground(new Color(20, 60, 110));
         JLabel subtitle = new JLabel("Parking Slot Management System");

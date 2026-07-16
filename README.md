@@ -1,4 +1,4 @@
-# 🅿️ Parking Slot Management System
+# 🅿️ EZPark - Parking Slot Management System
 
 > **Desktop UI available:** Run `ParkingApp.java` to launch the Swing interface, or run `Main.java` for the original console version.
 
@@ -119,13 +119,25 @@ The Swing interface provides a dashboard with live slot availability, vehicle
 parking and checkout forms, owner search, monthly-pass registration, and an
 admin dashboard with transaction and revenue totals.
 
+### Dashboard
+
+![Dashboard](assets/screenshots/dashboard.png)
+
+### Monthly Passes
+
+![Monthly pass registration](assets/screenshots/monthly-passes.png)
+
+### Admin Reports
+
+![Admin reports](assets/screenshots/admin-reports.png)
+
 ---
 
 ## ⌨️ Console Output Preview
 
 ```
 ╔══════════════════════════════════════╗
-║   PARKING SLOT MANAGEMENT SYSTEM     ║
+║               EZPARK                 ║
 ╚══════════════════════════════════════╝
 
 ┌──────────────────────────────┐
