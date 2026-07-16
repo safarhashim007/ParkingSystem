@@ -1,173 +1,109 @@
-// ParkingLot.java
-import java.io.*;
+import java.time.LocalDate;
 import java.util.*;
 
+/** Core parking rules, backed by SQLite through ParkingDatabase. */
 public class ParkingLot {
-    private static final int TW_CAPACITY = 10; // 10 two-wheeler slots
-    private static final int FW_CAPACITY =  5; //  5 four-wheeler slots
+    private static final int TW_CAPACITY = 10;
+    private static final int FW_CAPACITY = 5;
 
-    private static final String DATA_FILE = "parking_data.txt";
-    private static final String LOG_FILE  = "parking_log.txt";
-
-    private boolean[] twSlots; // true = occupied
-    private boolean[] fwSlots;
-    private Map<String, Ticket> activeTickets; // key = vehicle number
+    private final boolean[] twSlots = new boolean[TW_CAPACITY];
+    private final boolean[] fwSlots = new boolean[FW_CAPACITY];
+    private final Map<String, Ticket> activeTickets = new HashMap<>();
+    private final ParkingDatabase database = new ParkingDatabase();
 
     public ParkingLot() {
-        twSlots       = new boolean[TW_CAPACITY];
-        fwSlots       = new boolean[FW_CAPACITY];
-        activeTickets = new HashMap<>();
-        loadFromFile(); // restore state on startup
+        for (Ticket ticket : database.loadActiveTickets()) {
+            activeTickets.put(ticket.getVehicle().getVehicleNumber(), ticket);
+            slotsFor(ticket.getVehicle())[ticket.getSlotNumber() - 1] = true;
+        }
     }
 
-    // ─── PARK VEHICLE ────────────────────────────────────────────
     public void parkVehicle(Vehicle vehicle) {
-        String vNum = vehicle.getVehicleNumber();
-
-        if (activeTickets.containsKey(vNum)) {
-            System.out.println("⚠ Vehicle " + vNum + " is already parked!");
-            return;
-        }
-
-        boolean[] slots = vehicle.getVehicleType().equals("TWO_WHEELER")
-                ? twSlots : fwSlots;
-        int slotNum = allocateSlot(slots);
-
-        if (slotNum == -1) {
-            System.out.println("✗ No slots available for " + vehicle.getVehicleType());
-            return;
-        }
-
-        Ticket ticket = new Ticket(vehicle, slotNum);
-        activeTickets.put(vNum, ticket);
-        saveToFile();
-
-        System.out.println("✔ Vehicle parked successfully!");
-        ticket.printTicket();
+        Ticket ticket = parkVehicleAndGetTicket(vehicle);
+        if (ticket != null) ticket.printTicket();
     }
 
-    // ─── EXIT VEHICLE ────────────────────────────────────────────
-    public void exitVehicle(String vehicleNumber) {
-        vehicleNumber = vehicleNumber.toUpperCase();
-        Ticket ticket = activeTickets.get(vehicleNumber);
+    public Ticket parkVehicleAndGetTicket(Vehicle vehicle) {
+        String number = vehicle.getVehicleNumber();
+        if (activeTickets.containsKey(number)) return null;
 
-        if (ticket == null) {
-            System.out.println("✗ No active parking found for: " + vehicleNumber);
-            return;
-        }
+        int slot = allocateSlot(slotsFor(vehicle));
+        if (slot == -1) return null;
+
+        Ticket ticket = new Ticket(vehicle, slot);
+        ticket.setMonthlyPass(database.hasActivePass(number));
+        activeTickets.put(number, ticket);
+        database.saveActiveTicket(ticket);
+        return ticket;
+    }
+
+    public void exitVehicle(String vehicleNumber) {
+        Ticket ticket = exitVehicleAndGetTicket(vehicleNumber);
+        if (ticket != null) ticket.printBill();
+    }
+
+    public Ticket exitVehicleAndGetTicket(String vehicleNumber) {
+        Ticket ticket = activeTickets.get(vehicleNumber.toUpperCase());
+        if (ticket == null) return null;
 
         ticket.markExit();
-
-        // Free the slot
-        boolean[] slots = ticket.getVehicle().getVehicleType().equals("TWO_WHEELER")
-                ? twSlots : fwSlots;
-        slots[ticket.getSlotNumber() - 1] = false;
-
-        activeTickets.remove(vehicleNumber);
-
-        ticket.printBill();
-        logTransaction(ticket);
-        saveToFile();
+        slotsFor(ticket.getVehicle())[ticket.getSlotNumber() - 1] = false;
+        activeTickets.remove(ticket.getVehicle().getVehicleNumber());
+        database.completeTicket(ticket);
+        return ticket;
     }
 
-    // ─── DISPLAY PARKED VEHICLES ─────────────────────────────────
+    public void registerMonthlyPass(String ownerName, String vehicleNumber, String vehicleType, LocalDate expiryDate) {
+        database.registerMonthlyPass(ownerName, vehicleNumber.toUpperCase(), vehicleType, expiryDate);
+    }
+
+    public List<Ticket> getActiveTickets() {
+        return activeTickets.values().stream().sorted(Comparator.comparing(Ticket::getTicketId)).toList();
+    }
+
+    public List<Ticket> searchActiveByOwner(String ownerName) {
+        String query = ownerName.trim().toLowerCase();
+        return getActiveTickets().stream()
+                .filter(ticket -> ticket.getVehicle().getOwnerName().toLowerCase().contains(query))
+                .toList();
+    }
+
+    // Console-mode views retained for the original Main.java interface.
     public void displayParkedVehicles() {
-        if (activeTickets.isEmpty()) {
-            System.out.println("  No vehicles currently parked.");
-            return;
+        if (activeTickets.isEmpty()) { System.out.println("No vehicles currently parked."); return; }
+        for (Ticket ticket : getActiveTickets()) {
+            System.out.printf("%s | %s | %s | %s | Slot %d%n", ticket.getTicketId(),
+                    ticket.getVehicle().getVehicleNumber(), ticket.getVehicle().getOwnerName(),
+                    ticket.getVehicle().getVehicleType(), ticket.getSlotNumber());
         }
-        System.out.println("\n┌─────────┬────────────┬──────────────┬───────────────┬──────┐");
-        System.out.println("│ Ticket  │ Vehicle No │ Owner        │ Type          │ Slot │");
-        System.out.println("├─────────┼────────────┼──────────────┼───────────────┼──────┤");
-        for (Ticket t : activeTickets.values()) {
-            System.out.printf("│ %-7s │ %-10s │ %-12s │ %-13s │ %-4d │%n",
-                    t.getTicketId(),
-                    t.getVehicle().getVehicleNumber(),
-                    t.getVehicle().getOwnerName(),
-                    t.getVehicle().getVehicleType(),
-                    t.getSlotNumber());
-        }
-        System.out.println("└─────────┴────────────┴──────────────┴───────────────┴──────┘");
     }
 
-    // ─── DISPLAY SLOT STATUS ─────────────────────────────────────
     public void displaySlotStatus() {
-        System.out.println("\n  ── TWO-WHEELER SLOTS ──");
-        printSlotGrid(twSlots, "TW");
-        System.out.println("\n  ── FOUR-WHEELER SLOTS ──");
-        printSlotGrid(fwSlots, "FW");
-        System.out.printf("%n  [■ Occupied]  [□ Free]%n");
+        System.out.println("Two-wheeler slots: " + getAvailableTwoWheelerSlots() + " of " + TW_CAPACITY + " available");
+        System.out.println("Four-wheeler slots: " + getAvailableFourWheelerSlots() + " of " + FW_CAPACITY + " available");
     }
 
-    // ─── HELPERS ─────────────────────────────────────────────────
+    public RevenueReport getRevenueReport() { return database.getRevenueReport(); }
+    public int getMonthlyPassCount() { return database.getActivePassCount(); }
+    public int getAvailableTwoWheelerSlots() { return countAvailable(twSlots); }
+    public int getAvailableFourWheelerSlots() { return countAvailable(fwSlots); }
+    public boolean[] getTwoWheelerSlots() { return twSlots.clone(); }
+    public boolean[] getFourWheelerSlots() { return fwSlots.clone(); }
+
+    private boolean[] slotsFor(Vehicle vehicle) {
+        return vehicle.getVehicleType().equals("TWO_WHEELER") ? twSlots : fwSlots;
+    }
 
     private int allocateSlot(boolean[] slots) {
         for (int i = 0; i < slots.length; i++) {
-            if (!slots[i]) {
-                slots[i] = true;
-                return i + 1; // 1-indexed
-            }
+            if (!slots[i]) { slots[i] = true; return i + 1; }
         }
-        return -1; // full
+        return -1;
     }
 
-    private void printSlotGrid(boolean[] slots, String prefix) {
-        for (int i = 0; i < slots.length; i++) {
-            System.out.printf("  %s-%02d[%s]",
-                    prefix, i + 1, slots[i] ? "■" : "□");
-            if ((i + 1) % 5 == 0) System.out.println();
-        }
-        System.out.println();
-    }
-
-    // ─── FILE HANDLING ───────────────────────────────────────────
-
-    // Save active tickets to DATA_FILE
-    private void saveToFile() {
-        try (PrintWriter pw = new PrintWriter(new FileWriter(DATA_FILE))) {
-            for (Ticket t : activeTickets.values()) {
-                pw.println(t.toFileString());
-            }
-        } catch (IOException e) {
-            System.out.println("⚠ Could not save data: " + e.getMessage());
-        }
-    }
-
-    // Load active tickets from DATA_FILE on startup
-    private void loadFromFile() {
-        File f = new File(DATA_FILE);
-        if (!f.exists()) return;
-
-        try (BufferedReader br = new BufferedReader(new FileReader(f))) {
-            String line;
-            while ((line = br.readLine()) != null) {
-                if (line.trim().isEmpty()) continue;
-                Ticket t = Ticket.fromFileString(line);
-                activeTickets.put(t.getVehicle().getVehicleNumber(), t);
-                // Mark slot as occupied
-                if (t.getVehicle().getVehicleType().equals("TWO_WHEELER")) {
-                    twSlots[t.getSlotNumber() - 1] = true;
-                } else {
-                    fwSlots[t.getSlotNumber() - 1] = true;
-                }
-            }
-            System.out.println("✔ Restored " + activeTickets.size()
-                    + " active parking record(s) from file.");
-        } catch (IOException e) {
-            System.out.println("⚠ Could not load data: " + e.getMessage());
-        }
-    }
-
-    // Append completed transaction to LOG_FILE
-    private void logTransaction(Ticket ticket) {
-        try (PrintWriter pw = new PrintWriter(
-                new FileWriter(LOG_FILE, true))) { // append mode
-            pw.printf("EXIT | %s | %s | Charge: Rs.%.2f%n",
-                    ticket.toFileString(),
-                    java.time.LocalDateTime.now(),
-                    ticket.calculateCharge());
-        } catch (IOException e) {
-            System.out.println("⚠ Could not write log: " + e.getMessage());
-        }
+    private int countAvailable(boolean[] slots) {
+        int available = 0;
+        for (boolean occupied : slots) if (!occupied) available++;
+        return available;
     }
 }

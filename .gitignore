@@ -28,3 +28,7 @@ bin/
 
 ### Mac OS ###
 .DS_Store
+parking.db
+parking_data.txt
+parking_log.txt
+out/

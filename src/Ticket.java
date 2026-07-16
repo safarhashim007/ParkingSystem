@@ -11,6 +11,7 @@ public class Ticket {
     private int           slotNumber;
     private LocalDateTime entryTime;
     private LocalDateTime exitTime;
+    private boolean monthlyPass;
 
     private static final DateTimeFormatter FMT =
             DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm:ss");
@@ -30,10 +31,13 @@ public class Ticket {
         this.vehicle    = vehicle;
         this.slotNumber = slotNumber;
         this.entryTime  = entryTime;
+        int number = Integer.parseInt(ticketId.replace("TKT-", ""));
+        if (number >= counter) counter = number + 1;
     }
 
     // Calculate charge using the Vehicle's own rate definitions
     public double calculateCharge() {
+        if (monthlyPass) return 0;
         LocalDateTime end = (exitTime != null) ? exitTime : LocalDateTime.now();
         long minutes = ChronoUnit.MINUTES.between(entryTime, end);
 
@@ -108,4 +112,6 @@ public class Ticket {
     public Vehicle       getVehicle()    { return vehicle; }
     public int           getSlotNumber() { return slotNumber; }
     public LocalDateTime getEntryTime()  { return entryTime; }
+    public boolean isMonthlyPass()       { return monthlyPass; }
+    public void setMonthlyPass(boolean monthlyPass) { this.monthlyPass = monthlyPass; }
 }
